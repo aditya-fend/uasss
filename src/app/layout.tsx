@@ -1,13 +1,14 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import Link from "next/link"; // Mengimpor komponen Link Next.js
-import "./globals.css";
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import Link from 'next/link';
+import '@/app/globals.css'; // Sesuaikan dengan path file CSS global kamu
+import { LayoutGrid, PlusCircle, ShoppingBag, Receipt } from 'lucide-react';
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: "Minimalist Store",
-  description: "A clean, monochrome e-commerce experience.",
+  title: 'Minimalist Store Dashboard',
+  description: 'Next.js + Postgres Neon Store Management',
 };
 
 export default function RootLayout({
@@ -15,45 +16,63 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Data navigasi untuk sidebar
+  const navItems = [
+    { name: 'Katalog', href: '/', icon: LayoutGrid },
+    { name: 'Tambah Produk', href: '/tambah', icon: PlusCircle },
+    { name: 'Keranjang', href: '/keranjang', icon: ShoppingBag },
+    { name: 'Pesanan', href: '/pesanan', icon: Receipt },
+  ];
+
   return (
-    <html lang="id" className={`${inter.variable} scroll-smooth`}>
-      <body className="bg-white text-black antialiased min-h-screen flex flex-col font-sans">
+    <html lang="id" className="h-full bg-black">
+      <body className={`${inter.className} h-full text-zinc-200 antialiased flex`}>
         
-        {/* HEADER / NAVIGATION */}
-        <header className="border-b border-gray-100 sticky top-0 bg-white/80 backdrop-blur-md z-50">
-          <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-            <Link href="/" className="text-lg font-bold tracking-widest uppercase">
-              MINIMAL.
-            </Link>
-            <nav className="flex items-center gap-8 text-sm uppercase tracking-wider font-medium text-gray-600">
-              <Link href="/produk" className="hover:text-black transition-colors">
-                Produk
-              </Link>
-              <Link href="/keranjang" className="hover:text-black transition-colors">
-                Keranjang
-              </Link>
-              <Link href="/pesanan" className="hover:text-black transition-colors">
-                Pesanan
-              </Link>
+        {/* SIDEBAR */}
+        <aside className="w-64 h-full bg-zinc-950 border-r border-zinc-900 flex flex-col justify-between p-6 shrink-0">
+          <div className="space-y-8">
+            {/* Logo / Brand Header */}
+            <div className="px-2">
+              <span className="text-sm font-bold tracking-widest text-white uppercase">
+                STORE.CORE
+              </span>
+              <p className="text-[10px] text-zinc-600 tracking-wider uppercase mt-0.5">
+                Management System
+              </p>
+            </div>
+
+            {/* Navigasi Menu */}
+            <nav className="space-y-1.5">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-md text-xs font-medium tracking-wide text-zinc-400 hover:text-white hover:bg-zinc-900/50 transition-all duration-150 group"
+                  >
+                    <Icon className="w-4 h-4 text-zinc-500 group-hover:text-zinc-300 transition-colors" />
+                    {item.name}
+                  </Link>
+                );
+              })}
             </nav>
           </div>
-        </header>
 
-        {/* MAIN CONTENT AREA */}
-        <main className="flex-grow max-w-7xl w-full mx-auto px-6 py-12">
-          {children}
-        </main>
-
-        {/* FOOTER */}
-        <footer className="border-t border-gray-100 py-8 bg-gray-50/50">
-          <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4 text-xs tracking-wide text-gray-400 uppercase">
-            <div>© {new Date().getFullYear()} Minimalist Store. All rights reserved.</div>
-            <div className="flex gap-6">
-              <Link href="#" className="hover:text-black transition-colors">Privacy</Link>
-              <Link href="#" className="hover:text-black transition-colors">Terms</Link>
-            </div>
+          {/* Footer Sidebar Ringkas */}
+          <div className="px-2 pt-4 border-t border-zinc-900/50">
+            <p className="text-[10px] text-zinc-600 tracking-tight">
+              &copy; 2026 Engine v1.0
+            </p>
           </div>
-        </footer>
+        </aside>
+
+        {/* AREA KONTEN UTAMA */}
+        <div className="flex-1 h-full overflow-y-auto bg-black flex justify-center items-start">
+          <div className="w-full max-w-7xl p-8 lg:p-12">
+            {children}
+          </div>
+        </div>
 
       </body>
     </html>

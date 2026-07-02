@@ -1,126 +1,139 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
+import { useState, useEffect, useRef } from 'react';
+import { ChevronDown } from 'lucide-react';
 
-interface CountryData {
-  name: string;
-  flag: string; // URL gambar (.svg atau .png dari API)
-  iso2: string;
+// Interface mencocokkan struktur umum API countries.dev
+interface Country {
+  code: string; // ISO Code (misal: "ID")
+  name: string; // Nama Negara (misal: "Indonesia")
+  flag?: string; // Emoji atau URL flag jika tersedia
 }
 
-interface CountryDropdownProps {
-  onSelectCountry?: (countryName: string) => void;
+interface CountrySelectProps {
+  onSelect: (countryName: string) => void;
+  selectedValue?: string;
 }
 
-// Daftar negara Asia untuk menyaring data global dari CountriesNow
-const ASIA_COUNTRIES = [
-  "Afghanistan", "Armenia", "Azerbaijan", "Bahrain", "Bangladesh", "Bhutan", "Brunei", 
-  "Cambodia", "China", "Cyprus", "Georgia", "India", "Indonesia", "Iran", "Iraq", 
-  "Israel", "Japan", "Jordan", "Kazakhstan", "Kuwait", "Kyrgyzstan", "Laos", 
-  "Lebanon", "Malaysia", "Maldives", "Mongolia", "Myanmar", "Nepal", "North Korea", 
-  "Oman", "Pakistan", "Palestine", "Philippines", "Qatar", "Saudi Arabia", "Singapore", 
-  "South Korea", "Sri Lanka", "Syria", "Taiwan", "Tajikistan", "Thailand", "Timor-Leste", 
-  "Turkey", "Turkmenistan", "United Arab Emirates", "Uzbekistan", "Vietnam", "Yemen"
-];
+export default function CountrySelect({ onSelect, selectedValue = '' }: CountrySelectProps) {
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selected, setSelected] = useState(selectedValue);
+  const [loading, setLoading] = useState(true);
+  
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-export default function CountryDropdown({ onSelectCountry }: CountryDropdownProps) {
-  const [countries, setCountries] = useState<CountryData[]>([]);
-  const [selected, setSelected] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(true);
-
+  // Fetch data dari API ketika komponen pertama kali dimuat
   useEffect(() => {
-    fetch("https://countriesnow.space/api/v0.1/countries/flag/images")
-      .then((res) => {
-        if (!res.ok) throw new Error("Gagal mengambil data dari CountriesNow");
-        return res.json();
-      })
-      .then((body) => {
-        // Mengambil array dari properti body.data sesuai struktur respons asli
-        const allCountries: CountryData[] = body.data || [];
+    const fetchCountries = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch('https://countries.dev/countries?region=Asia');
+        const data = await res.json();
         
-        // Memfilter hanya negara-negara yang masuk dalam daftar wilayah Asia
-        const asiaOnly = allCountries.filter((country) =>
-          ASIA_COUNTRIES.includes(country.name)
-        );
+        // Memetakan data agar sesuai interface (menangani variasi response API)
+        const formattedData = data.map((c: any) => ({
+          code: c.code || c.alpha2 || c.iso2 || '',
+          name: c.name?.common || c.name || '',
+          flag: c.flag || ''
+        })).sort((a: Country, b: Country) => a.name.localeCompare(b.name));
 
-        // Mengurutkan nama negara dari A sampai Z secara alfabetis
-        const sorted = asiaOnly.sort((a, b) => a.name.localeCompare(b.name));
-        
-        setCountries(sorted);
+        setCountries(formattedData);
+      } catch (error) {
+        console.error('Gagal memuat data negara:', error);
+      } finally {
         setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Error fetching countries:", err);
-        setLoading(false);
-      });
+      }
+    };
+
+    fetchCountries();
   }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    setSelected(val);
-    if (onSelectCountry) {
-      onSelectCountry(val);
-    }
+  // Menutup dropdown jika klik di luar area komponen
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Filter negara berdasarkan kolom pencarian
+  const filteredCountries = countries.filter((country) =>
+    country.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleSelect = (countryName: string) => {
+    setSelected(countryName);
+    onSelect(countryName);
+    setIsOpen(false);
+    setSearchTerm(''); // Reset pencarian setelah memilih
   };
 
-  // Mencari data negara yang sedang dipilih untuk memunculkan bendera di sebelah teks
-  const currentCountry = countries.find((c) => c.name === selected);
-
   return (
-    <div className="w-full max-w-xs">
-      <label className="block text-xs font-medium uppercase tracking-wider text-gray-400 mb-2">
-        Asal Negara
+    <div className="w-full max-w-xs" ref={dropdownRef}>
+      <label className="block text-xs font-medium tracking-wider text-zinc-400 uppercase mb-2">
+        Asal Negara (Asia)
       </label>
       
-      <div className="relative flex items-center">
-        {/* Render bendera secara dinamis jika ada negara yang dipilih */}
-        {currentCountry && (
-          <div className="absolute left-3 flex items-center pointer-events-none">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={currentCountry.flag}
-              alt={`Bendera ${currentCountry.name}`}
-              // Grayscale membuat warna bendera mengikuti tema minimalis hitam-putih Anda
-              className="w-5 h-3.5 object-cover border border-gray-100"
-            />
+      <div className="relative">
+        {/* Tombol Utama / Trigger */}
+        <button
+          type="button"
+          onClick={() => !loading && setIsOpen(!isOpen)}
+          disabled={loading}
+          className="w-full flex items-center justify-between px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-md text-sm text-zinc-200 text-left transition-all duration-200 hover:border-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <span className="truncate">
+            {loading ? 'Memuat negara...' : selected || 'Pilih negara asal'}
+          </span>
+          <ChevronDown className={`w-4 h-4 text-zinc-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        </button>
+
+        {/* Dropdown Menu */}
+        {isOpen && (
+          <div className="absolute z-50 w-full mt-1.5 bg-zinc-950 border border-zinc-800 rounded-md shadow-2xl max-h-60 flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+            {/* Input Search */}
+            <div className="p-2 border-b border-zinc-900 bg-zinc-950/50 sticky top-0 backdrop-blur-md">
+              <input
+                type="text"
+                placeholder="Cari negara..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600"
+              />
+            </div>
+
+            {/* List Item */}
+            <ul className="overflow-y-auto flex-1 divide-y divide-zinc-900/30 scrollbar-thin scrollbar-thumb-zinc-800">
+              {filteredCountries.length > 0 ? (
+                filteredCountries.map((country) => (
+                  <li key={country.code || country.name}>
+                    <button
+                      type="button"
+                      onClick={() => handleSelect(country.name)}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-xs text-left transition-colors duration-150 hover:bg-zinc-900 ${
+                        selected === country.name 
+                          ? 'bg-zinc-900 text-white font-medium' 
+                          : 'text-zinc-400 hover:text-zinc-200'
+                      }`}
+                    >
+                      {country.flag && <span className="text-sm">{country.flag}</span>}
+                      <span className="truncate">{country.name}</span>
+                    </button>
+                  </li>
+                ))
+              ) : (
+                <li className="px-4 py-6 text-xs text-center text-zinc-600">
+                  Negara tidak ditemukan
+                </li>
+              )}
+            </ul>
           </div>
         )}
-
-        <select
-          value={selected}
-          onChange={handleChange}
-          disabled={loading}
-          className={`w-full bg-white text-sm text-black border border-gray-200 py-3 pr-10 appearance-none focus:outline-none focus:border-black transition-colors rounded-none cursor-pointer
-            ${currentCountry ? "pl-11" : "pl-4"} 
-            ${loading ? "opacity-50 cursor-not-allowed" : ""}
-          `}
-        >
-          <option value="">
-            {loading ? "Memuat negara..." : "Pilih Negara"}
-          </option>
-          {countries.map((country) => (
-            <option key={country.iso2 || country.name} value={country.name}>
-              {country.name}
-            </option>
-          ))}
-        </select>
-
-        {/* Custom Minimalist Arrow Icon (Panah Bawah Tipis) */}
-        <div className="absolute right-4 pointer-events-none flex items-center">
-          <svg
-            className="h-4 w-4 text-gray-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="1.5"
-              d="M19 9l-7 7-7-7"
-            />
-          </svg>
-        </div>
       </div>
     </div>
   );

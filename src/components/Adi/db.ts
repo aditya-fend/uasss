@@ -1,13 +1,9 @@
-import { neon } from "@neondatabase/serverless";
+import { neon } from '@neondatabase/serverless';
 
+// Memastikan DATABASE_URL sudah dikonfigurasi di .env
 if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL belum ditentukan");
+  throw new Error('DATABASE_URL tidak ditemukan di file .env');
 }
 
-const sql = neon(process.env.DATABASE_URL);
-
-export const db = {
-  query(queryString: string, params: any[] = []) {
-    return sql.query(queryString, params);
-  },
-};
+// Inisialisasi fungsi sql untuk melakukan query ke Neon
+export const sql = neon(process.env.DATABASE_URL);

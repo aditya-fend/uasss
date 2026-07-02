@@ -1,65 +1,86 @@
-"use server";
+'use server';
 
-import { revalidatePath } from "next/cache";
+import { sql } from '@/components/Adi/db';
+import { revalidatePath } from 'next/cache';
 
-// Pastikan Anda sudah mengonfigurasi koneksi database Anda di file terpisah,
-// atau mengimpor pool/sql client dari konfigurasi Neon Anda.
-// Contoh di bawah mengasumsikan penggunaan client database standar:
-import { db } from "@/components/Adi/db"; 
-
-interface ActionResponse {
-  success: boolean;
-  message: string;
+// Interface untuk validasi data input
+interface ProdukInput {
+  nama: string;
+  harga: number;
+  stok: number;
+  asal_negara: string;
 }
 
-export async function tambahProdukAction(
-  prevState: any,
-  formData: FormData
-): Promise<ActionResponse> {
-  // 1. Ekstrak data dari FormData
-  const nama = formData.get("nama") as string;
-  const hargaRaw = formData.get("harga") as string;
-  const stokRaw = formData.get("stok") as string;
-  const asal_negara = formData.get("asal_negara") as string;
-
-  // 2. Validasi Input Sederhana
-  if (!nama || !hargaRaw || !stokRaw || !asal_negara) {
-    return { success: false, message: "Semua kolom wajib diisi." };
-  }
-
-  const harga = parseFloat(hargaRaw);
-  const stok = parseInt(stokRaw, 10);
-
-  if (isNaN(harga) || harga < 0) {
-    return { success: false, message: "Harga harus berupa angka dan tidak boleh minus." };
-  }
-
-  if (isNaN(stok) || stok < 0) {
-    return { success: false, message: "Stok harus berupa angka dan tidak boleh minus." };
-  }
-
+/**
+ * 1. CREATE: Menambahkan produk baru
+ */
+export async function createProduk(data: ProdukInput) {
   try {
-    // 3. Jalankan Query SQL ke database Neon
-    // Sintaks ini menggunakan parameterized query ($1, $2, dst) untuk mencegah SQL Injection
-    await db.query(
-      `INSERT INTO produk (nama, harga, stok, asal_negara) 
-       VALUES ($1, $2, $3, $4)`,
-      [nama, harga, stok, asal_negara]
-    );
+    if (!data.nama || !data.harga || !data.asal_negara) {
+      throw new Error('Semua field wajib diisi kecuali stok');
+    }
 
-    // 4. Bersihkan cache halaman produk agar data terbaru langsung muncul
-    revalidatePath("/produk");
+    await sql`
+      INSERT INTO produk (nama, harga, stok, asal_negara)
+      VALUES (${data.nama}, ${data.harga}, ${data.stok}, ${data.asal_negara})
+    `;
 
-    return { 
-      success: true, 
-      message: "Produk berhasil ditambahkan ke katalog." 
-    };
+    // Refresh halaman katalog dan tambah produk agar datanya paling baru
+    revalidatePath('/katalog');
+    revalidatePath('/tambah-produk');
+    
+    return { success: true, message: 'Produk berhasil ditambahkan!' };
+  } catch (error: any) {
+    return { success: false, message: error.message || 'Gagal menambahkan produk' };
+  }
+}
 
+/**
+ * 2. READ: Mengambil satu produk berdasarkan ID (untuk form edit)
+ */
+export async function getProdukById(id: number) {
+  try {
+    const rows = await sql`SELECT * FROM produk WHERE id = ${id}`;
+    if (rows.length === 0) return { success: false, data: null };
+    
+    return { success: true, data: rows[0] };
   } catch (error) {
-    console.error("Gagal menambahkan produk:", error);
-    return { 
-      success: false, 
-      message: "Terjadi kesalahan pada server saat menyimpan produk." 
-    };
+    return { success: false, data: null };
+  }
+}
+
+/**
+ * 3. UPDATE: Memperbarui data produk
+ */
+export async function updateProduk(id: number, data: ProdukInput) {
+  try {
+    await sql`
+      UPDATE produk
+      SET nama = ${data.nama}, harga = ${data.harga}, stok = ${data.stok}, asal_negara = ${data.asal_negara}
+      WHERE id = ${id}
+    `;
+
+    revalidatePath('/katalog');
+    revalidatePath('/tambah-produk');
+    
+    return { success: true, message: 'Produk berhasil diperbarui!' };
+  } catch (error: any) {
+    return { success: false, message: error.message || 'Gagal memperbarui produk' };
+  }
+}
+
+/**
+ * 4. DELETE: Menghapus produk
+ */
+export async function deleteProduk(id: number) {
+  try {
+    await sql`DELETE FROM produk WHERE id = ${id}`;
+
+    revalidatePath('/katalog');
+    revalidatePath('/tambah-produk');
+    
+    return { success: true, message: 'Produk berhasil dihapus!' };
+  } catch (error: any) {
+    return { success: false, message: error.message || 'Gagal menghapus produk' };
   }
 }

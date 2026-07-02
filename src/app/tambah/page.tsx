@@ -1,9 +1,9 @@
-import AddProductPage from '@/components/Adit/AddProductPage'
+import AddProductPage from "@/components/Adit/AddProductPage";
 
-const page = () => {
+export default function Page() {
   return (
-    <AddProductPage />
-  )
+    <main className="min-h-screen w-full bg-black flex items-center justify-center p-4 antialiased">
+      <AddProductPage />
+    </main>
+  );
 }
-
-export default page
