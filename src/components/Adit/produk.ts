@@ -3,7 +3,6 @@
 import { sql } from '@/components/Adi/db';
 import { revalidatePath } from 'next/cache';
 
-// Interface untuk validasi data input
 interface ProdukInput {
   nama: string;
   harga: number;
@@ -11,9 +10,6 @@ interface ProdukInput {
   asal_negara: string;
 }
 
-/**
- * 1. CREATE: Menambahkan produk baru
- */
 export async function createProduk(data: ProdukInput) {
   try {
     if (!data.nama || !data.harga || !data.asal_negara) {
@@ -25,7 +21,6 @@ export async function createProduk(data: ProdukInput) {
       VALUES (${data.nama}, ${data.harga}, ${data.stok}, ${data.asal_negara})
     `;
 
-    // Refresh halaman katalog dan tambah produk agar datanya paling baru
     revalidatePath('/katalog');
     revalidatePath('/tambah-produk');
     
@@ -35,9 +30,6 @@ export async function createProduk(data: ProdukInput) {
   }
 }
 
-/**
- * 2. READ: Mengambil satu produk berdasarkan ID (untuk form edit)
- */
 export async function getProdukById(id: number) {
   try {
     const rows = await sql`SELECT * FROM produk WHERE id = ${id}`;
@@ -49,9 +41,6 @@ export async function getProdukById(id: number) {
   }
 }
 
-/**
- * 3. UPDATE: Memperbarui data produk
- */
 export async function updateProduk(id: number, data: ProdukInput) {
   try {
     await sql`
@@ -69,9 +58,6 @@ export async function updateProduk(id: number, data: ProdukInput) {
   }
 }
 
-/**
- * 4. DELETE: Menghapus produk
- */
 export async function deleteProduk(id: number) {
   try {
     await sql`DELETE FROM produk WHERE id = ${id}`;

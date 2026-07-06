@@ -1,9 +1,12 @@
+// Menandakan bahwa seluruh fungsi dalam file ini adalah Server Actions yang berjalan di sisi server
 'use server';
 
+// Mengimpor instance koneksi database (sql) dari folder db milik Adi
 import { sql } from '../Adi/db';
+// Mengimpor fungsi revalidatePath dari Next.js untuk membersihkan cache halaman tertentu secara on-demand
 import { revalidatePath } from 'next/cache';
 
-// Interface untuk struktur data Pesanan
+// Mendefinisikan struktur data (interface) untuk objek Pesanan
 interface Pesanan {
   id: number;
   total_harga: number;
@@ -11,7 +14,7 @@ interface Pesanan {
   created_at: string;
 }
 
-// Interface untuk struktur detail item di dalam pesanan
+// Mendefinisikan struktur data (interface) untuk objek DetailItem pesanan
 interface DetailItem {
   id: number;
   pesanan_id: number;
@@ -21,30 +24,30 @@ interface DetailItem {
   harga_saat_ini: number;
 }
 
-/**
- * 1. READ: Mengambil semua data pesanan
- */
+// Fungsi asinkronus untuk mengambil semua data pesanan dari database
 export async function getPesanan(): Promise<{ success: boolean; data: Pesanan[] }> {
   try {
+    // Menjalankan query SQL untuk mengambil kolom tertentu dari tabel pesanan dan diurutkan dari yang terbaru
     const data = await sql`
       SELECT id, total_harga, status_pembayaran, created_at 
       FROM pesanan 
       ORDER BY created_at DESC
     ` as Pesanan[];
     
+    // Mengembalikan objek status sukses beserta data pesanan yang didapatkan
     return { success: true, data };
   } catch (error) {
+    // Menampilkan pesan error di konsol server jika query gagal eksekusi
     console.error('Gagal mengambil data pesanan:', error);
+    // Mengembalikan objek status gagal dengan data array kosong
     return { success: false, data: [] };
   }
 }
 
-/**
- * 2. READ: Mengambil detail item berdasarkan ID Pesanan
- */
+// Fungsi asinkronus untuk mengambil detail item berdasarkan ID pesanan tertentu
 export async function getDetailPesanan(pesananId: number): Promise<{ success: boolean; data: DetailItem[] }> {
   try {
-    // Melakukan JOIN dengan tabel produk untuk mendapatkan nama produknya
+    // Menjalankan query SQL dengan LEFT JOIN untuk mengambil detail pesanan sekaligus nama produknya
     const data = await sql`
       SELECT 
         dp.id, 
@@ -58,39 +61,44 @@ export async function getDetailPesanan(pesananId: number): Promise<{ success: bo
       WHERE dp.pesanan_id = ${pesananId}
     ` as DetailItem[];
 
+    // Mengembalikan objek status sukses beserta data detail pesanan
     return { success: true, data };
   } catch (error) {
+    // Menampilkan pesan error di konsol server jika query gagal eksekusi
     console.error('Gagal mengambil detail pesanan:', error);
+    // Mengembalikan objek status gagal dengan data array kosong
     return { success: false, data: [] };
   }
 }
 
-/**
- * 3. UPDATE: Mengubah status pembayaran (pending / success / failed)
- */
+// Fungsi asinkronus untuk memperbarui status pembayaran dari suatu pesanan
 export async function updateStatusPesanan(id: number, statusBaru: 'pending' | 'success' | 'failed') {
   try {
+    // Menjalankan query SQL untuk memperbarui kolom status_pembayaran berdasarkan ID pesanan
     await sql`
       UPDATE pesanan
       SET status_pembayaran = ${statusBaru}
       WHERE id = ${id}
     `;
 
-    // Revalidasi halaman pesanan agar data di UI langsung sinkron
+    // Memperbarui cache Next.js untuk rute '/pesanan' agar data terbaru langsung muncul di browser
     revalidatePath('/pesanan');
     
+    // Mengembalikan objek status sukses beserta pesan konfirmasi
     return { success: true, message: `Status pesanan #${id} berhasil diubah menjadi ${statusBaru}` };
   } catch (error: any) {
+    // Mengembalikan objek status gagal beserta pesan error yang terjadi
     return { success: false, message: error.message || 'Gagal memperbarui status pesanan' };
   }
 }
 
-
+// Mendefinisikan struktur data input untuk fungsi beli langsung
 interface BeliLangsungInput {
   produkId: number;
   kuantitas: number;
 }
 
+// Fungsi asinkronus untuk memproses pembelian produk secara langsung (checkout cepat)
 export async function beliLangsungAction({ produkId, kuantitas }: BeliLangsungInput) {
   try {
     // 1. Ambil data produk untuk cek stok dan harga terkini
@@ -98,18 +106,22 @@ export async function beliLangsungAction({ produkId, kuantitas }: BeliLangsungIn
       SELECT nama, harga, stok FROM produk WHERE id = ${produkId}
     `;
 
+    // Memeriksa apakah produk yang dicari ada di database atau tidak
     if (produk.length === 0) {
+      // Melempar error jika produk tidak ditemukan
       throw new Error('Produk tidak ditemukan');
     }
 
+    // Mengambil nilai harga dan stok dari hasil query produk pertama
     const { harga, stok } = produk[0];
 
     // 2. Validasi ketersediaan stok
     if (stok < kuantitas) {
+      // Melempar error jika jumlah yang dibeli melebihi stok yang tersedia
       throw new Error(`Stok tidak mencukupi. Sisa stok: ${stok}`);
     }
 
-    // 3. Hitung total harga
+    // 3. Hitung total harga dengan mengonversi tipe data harga ke Number
     const totalHarga = Number(harga) * kuantitas;
 
     // 4. Buat pesanan baru
@@ -119,6 +131,7 @@ export async function beliLangsungAction({ produkId, kuantitas }: BeliLangsungIn
       RETURNING id
     `;
     
+    // Mengambil ID pesanan baru yang baru saja di-insert dari klausul RETURNING id
     const pesananId = pesananBaru[0].id;
 
     // 5. Masukkan ke detail pesanan
@@ -134,12 +147,15 @@ export async function beliLangsungAction({ produkId, kuantitas }: BeliLangsungIn
       WHERE id = ${produkId}
     `;
 
-    // Revalidasi data agar halaman katalog dan pesanan diperbarui
+    // Memperbarui cache untuk halaman beranda atau katalog utama
     revalidatePath('/');
+    // Memperbarui cache untuk halaman daftar pesanan
     revalidatePath('/pesanan');
 
+    // Mengembalikan objek status sukses jika seluruh proses transaksi berhasil tanpa hambatan
     return { success: true, message: 'Pesanan berhasil dibuat' };
   } catch (error: any) {
+    // Mengembalikan objek status gagal beserta pesan error dari validasi atau kegagalan query database
     return { success: false, message: error.message || 'Gagal memproses pembelian' };
   }
 }

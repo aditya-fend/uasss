@@ -1,9 +1,7 @@
-import HalamanKeranjang from '@/components/Arum/ChartPage'
+import HalamanKeranjang from "@/components/Arum/ChartPage";
 
 const page = () => {
-  return (
-    <HalamanKeranjang />
-  )
-}
+  return <HalamanKeranjang />;
+};
 
-export default page
+export default page;
